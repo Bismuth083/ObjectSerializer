@@ -68,20 +68,19 @@ namespace ObjectSerializer
      * Base64文字列 -> <復号化> -> 圧縮Byte[] -> <解凍> -> JSON文字列 -> <デシリアライズ> -> オブジェクト
      * 
      * 暗号化/復号化にはAESを使用し、パスワードから256bitの鍵を生成する。
-     * IVは先頭の128bitを使用する。
+     * IVは先頭の128bitを使用する。これはEncryptにてランダムに設定する。暗号文はそれ以降の部分になる。
      * 暗号化方式はCBC、パディングはPKCS7を使用する。
      * 
      */
 
-    private static string Encrypt(byte[] plain, string password)
+    private static string Encrypt(byte[] compressed, string password)
     {
-#if DEBUG
-      Console.WriteLine("ENC-COM: " + BitConverter.ToString(plain)); // DEBUG
-#endif
+      // Generate IV
       var rng = RandomNumberGenerator.Create();
       byte[] iv = new byte[16];
       rng.GetBytes(iv);
 
+      // Set up AES
       using Aes aes = Aes.Create();
       aes.KeySize = 256;
       aes.Key = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(password));
@@ -90,36 +89,29 @@ namespace ObjectSerializer
       aes.Mode = CipherMode.CBC;
       aes.Padding = PaddingMode.PKCS7;
 
+      // Encrypt and return cipher Base64 string
       var encryptor = aes.CreateEncryptor();
       using var ms = new MemoryStream();
       using var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write);
       ms.Write(aes.IV);
-      cs.Write(plain, 0, plain.Length);
+      cs.Write(compressed, 0, compressed.Length);
       cs.FlushFinalBlock();
-#if DEBUG
-      Console.WriteLine("ENC-CIP: " + BitConverter.ToString(ms.ToArray())); // DEBUG
-      Console.WriteLine("ENC-IV : " + BitConverter.ToString(aes.IV)); // DEBUG
-#endif
       return Convert.ToBase64String(ms.ToArray());
     }
 
     private static byte[] Decrypt(string cipher, string password)
     {
+      // Set up AES(This setup must be the same as for Encrypt.)
       var cipherBytes = Convert.FromBase64String(cipher);
-#if DEBUG
-      Console.WriteLine("DEC-CIP: " + BitConverter.ToString(cipherBytes)); // DEBUG
-#endif
       using Aes aes = Aes.Create();
       aes.KeySize = 256;
       aes.Key = SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes(password));
       aes.BlockSize = 128;
-      aes.IV = cipherBytes.Take(aes.BlockSize / 8).ToArray();
+      aes.IV = cipherBytes.Take(aes.BlockSize / 8).ToArray(); // Get IV from cipher
       aes.Mode = CipherMode.CBC;
       aes.Padding = PaddingMode.PKCS7;
-#if DEBUG
-      Console.WriteLine("DEC-IV : " + BitConverter.ToString(aes.IV)); // DEBUG
-#endif
 
+      // Decrypt and return compressed byte[]
       var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
       using var ms = new MemoryStream();
       using (var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Write))
@@ -129,8 +121,10 @@ namespace ObjectSerializer
 
     private static byte[] Compress(string text)
     {
+      // plaintext -> compressed byte[]
       var bytes = Encoding.UTF8.GetBytes(text);
 
+      // Compress and return compressed byte[]
       using var ms = new MemoryStream();
       using (GZipStream gs = new(ms, CompressionLevel.Optimal, true))
       {
@@ -141,9 +135,7 @@ namespace ObjectSerializer
 
     private static string Decompress(byte[] bytes)
     {
-#if DEBUG
-      Console.WriteLine("DEC-COM: " + BitConverter.ToString(bytes)); // DEBUG
-#endif
+      // compressed byte[] -> plaintext
       using var ms = new MemoryStream(bytes);
       using var gs = new GZipStream(ms, CompressionMode.Decompress);
       using var sr = new StreamReader(gs, Encoding.UTF8);
