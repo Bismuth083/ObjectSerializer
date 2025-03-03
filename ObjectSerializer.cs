@@ -42,9 +42,9 @@ namespace ObjectSerializer
     /// <param name="deserializeText">デシリアライズする文字列。<br/>ObjectSerializer.Serializeでシリアライズしたものを利用してください。</param>
     /// <param name="password">既定ではnullです。<br/>シリアライズ時にパスワードを設定したパスワードと同じパスワードを指定してください。</param>
     /// <returns>与えられたJSONファイルから作成されたオブジェクトを返します。</returns>
-    public static T Deserialize<T>(string deserializeText, string? password = null)
+    public static T Deserialize<T>(string serializedText, string? password = null)
     {
-      string json = deserializeText;
+      string json = serializedText;
 
       // Decrypt then Decompress the json if password is not null
       if (password != null)
