@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using System.IO.Compression;
@@ -56,7 +57,15 @@ namespace ObjectSerializer
       return obj;
     }
 
-
+    /// <summary>
+    /// カスタムシリアライザを追加します。<br/>カスタムシリアライザの作成方法は、System.Text.Jsonの情報を参照してください。<br/><seealso cref="https://learn.microsoft.com/ja-jp/dotnet/standard/serialization/system-text-json/how-to#how-to-write-a-custom-converter"/>
+    /// </summary>
+    /// <typeparam name="T">変換したい型。</typeparam>
+    /// <param name="converter">カスタムコンバーター。作成方法はSystem.Text.Jsonの情報を参照してください。</param>
+    public static void AddCustomSerializer<T>(JsonConverter<T> converter)
+    {
+      Option.Converters.Add(converter);
+    }
 
     /*
      * ここから内部の実装。
